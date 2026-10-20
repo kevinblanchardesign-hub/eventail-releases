@@ -24,7 +24,7 @@
 
 ## Configuration requise
 
-- macOS 14 Sonoma ou plus récent
+- macOS 14 Sonoma ou plus récent (menu  → **À propos de ce Mac** pour vérifier)
 - Mac Apple Silicon ou Intel (application universelle)
 - Aucun compte, aucune connexion Internet nécessaire
 
@@ -32,7 +32,13 @@
 
 1. Cliquez sur **Télécharger** ci-dessus : `Eventail.dmg` arrive dans Téléchargements.
 2. Double-cliquez sur **Eventail.dmg**, puis faites glisser l’éventail bleu sur le dossier **Applications**.
-3. Ouvrez **Eventail** depuis Applications. S’il est bloqué la première fois : menu  → **Réglages Système** → **Confidentialité et sécurité** → **Ouvrir quand même**.
+3. Double-cliquez sur **Eventail** dans Applications. Eventail n’est pas encore notarisé par Apple, donc la première fois macOS affiche « Eventail n’a pas été ouvert » (ou « Apple n’a pas pu confirmer… »). C’est normal :
+   1. Cliquez sur **Terminé** (surtout pas sur « Placer dans la corbeille »).
+   2. Ouvrez le menu  → **Réglages Système** → **Confidentialité et sécurité**.
+   3. Descendez jusqu’à **Sécurité** : la ligne « Eventail a été bloqué… » affiche un bouton **Ouvrir quand même**. Cliquez dessus.
+   4. Confirmez avec votre mot de passe du Mac (ou Touch ID), puis cliquez encore sur **Ouvrir quand même**.
+
+   C’est à faire une seule fois. Depuis macOS 15, le clic droit → Ouvrir ne suffit plus : il faut passer par les Réglages Système.
 4. Eventail vit dans la **barre des menus**, en haut à droite de l’écran. Dans le Finder, faites glisser un fichier en maintenant **⇧ Maj** : l’éventail s’ouvre.
 
 Les mises à jour arrivent directement dans Eventail : une fenêtre présente la nouvelle version et l’installe en un clic. Vous pouvez aussi retélécharger avec le même bouton à tout moment.
