@@ -16,32 +16,65 @@
 
 <p align="center">
   <a href="https://github.com/kevinblanchardesign-hub/eventail-releases/releases/download/latest-build/Eventail.dmg"><b>Télécharger pour macOS</b></a> ·
+  <a href="#installer-en-3-étapes">Installer</a> ·
+  <a href="#utiliser-eventail">Utiliser</a> ·
   <a href="https://github.com/kevinblanchardesign-hub/eventail-releases/releases">Toutes les versions</a> ·
   <a href="LICENSE">Licence</a>
 </p>
 
 <br>
 
-## Configuration requise
+## Installer en 3 étapes
 
-- macOS 14 Sonoma ou plus récent (menu  → **À propos de ce Mac** pour vérifier)
-- Mac Apple Silicon ou Intel (application universelle)
-- Aucun compte, aucune connexion Internet nécessaire
+> Il faut **macOS 14 Sonoma ou plus récent** (menu  → **À propos de ce Mac** pour vérifier), sur un Mac Apple Silicon ou Intel. Aucun compte n’est nécessaire.
 
-## Installer
+### 1. Télécharger
 
-1. Cliquez sur **Télécharger** ci-dessus : `Eventail.dmg` arrive dans Téléchargements.
-2. Double-cliquez sur **Eventail.dmg**, puis faites glisser l’éventail bleu sur le dossier **Applications**.
-3. Double-cliquez sur **Eventail** dans Applications. Eventail n’est pas encore notarisé par Apple, donc la première fois macOS affiche « Eventail n’a pas été ouvert » (ou « Apple n’a pas pu confirmer… »). C’est normal :
-   1. Cliquez sur **Terminé** (surtout pas sur « Placer dans la corbeille »).
-   2. Ouvrez le menu  → **Réglages Système** → **Confidentialité et sécurité**.
-   3. Descendez jusqu’à **Sécurité** : la ligne « Eventail a été bloqué… » affiche un bouton **Ouvrir quand même**. Cliquez dessus.
-   4. Confirmez avec votre mot de passe du Mac (ou Touch ID), puis cliquez encore sur **Ouvrir quand même**.
+Cliquez sur le bouton bleu **Télécharger Eventail** ci-dessus. Le fichier `Eventail.dmg` arrive dans votre dossier **Téléchargements**.
 
-   C’est à faire une seule fois. Depuis macOS 15, le clic droit → Ouvrir ne suffit plus : il faut passer par les Réglages Système.
-4. Eventail vit dans la **barre des menus**, en haut à droite de l’écran. Dans le Finder, faites glisser un fichier en maintenant **⇧ Maj** : l’éventail s’ouvre.
+### 2. Mettre Eventail dans Applications
 
-Les mises à jour arrivent directement dans Eventail : une fenêtre présente la nouvelle version et l’installe en un clic. Vous pouvez aussi retélécharger avec le même bouton à tout moment.
+Double-cliquez sur **Eventail.dmg** : une fenêtre s’ouvre. Faites glisser l’**éventail bleu** sur le dossier **Applications**, à droite.
+Vous pouvez ensuite éjecter le disque « Eventail » (clic droit → **Éjecter**) et mettre le `.dmg` à la corbeille.
+
+### 3. Ouvrir Eventail la première fois (« Ouvrir quand même »)
+
+Eventail n’est pas encore vérifié par Apple (notarisation). macOS le bloque donc **une seule fois**, à la première ouverture. C’est normal, voici comment l’autoriser :
+
+1. Ouvrez le dossier **Applications** et double-cliquez sur **Eventail**.
+2. macOS affiche « Eventail n’a pas été ouvert » (ou « Apple n’a pas pu confirmer… »). Cliquez sur **Terminé**. *Surtout pas sur « Placer dans la corbeille ».*
+3. Ouvrez le menu  → **Réglages Système** → **Confidentialité et sécurité**.
+4. Descendez tout en bas, jusqu’à la partie **Sécurité**. Vous y voyez « Eventail a été bloqué… » avec un bouton **Ouvrir quand même** : cliquez dessus.
+5. Confirmez avec le mot de passe de votre Mac (ou Touch ID), puis cliquez encore sur **Ouvrir quand même**.
+
+C’est fini : les fois suivantes, Eventail s’ouvre normalement.
+
+> **Le bouton « Ouvrir quand même » n’apparaît pas ?** Il ne s’affiche qu’après une tentative d’ouverture, pendant environ une heure. Refaites l’étape 1, puis revenez dans **Confidentialité et sécurité**.
+>
+> Depuis macOS 15, le clic droit → **Ouvrir** ne suffit plus : il faut passer par les Réglages Système comme ci-dessus.
+
+## Utiliser Eventail
+
+Eventail n’a **pas d’icône dans le Dock** : il vit dans la **barre des menus**, en haut à droite de l’écran (un petit éventail). À l’ouverture, un message « Eventail est ouvert dans la barre des menus » le confirme. La première fois, un guide de bienvenue vous présente le geste.
+
+**Le geste** : dans le Finder, commencez à faire glisser un fichier, puis **pendant le glisser** maintenez une touche. Un éventail d’actions s’ouvre autour du pointeur. Lâchez le fichier sur une case : c’est fait, le résultat apparaît à côté de l’original (l’original n’est jamais modifié).
+
+| Touche pendant le glisser | Éventail | Exemples |
+| --- | --- | --- |
+| **⇧ Maj** | Convertir | PNG → JPG, PDF → Word, MOV → MP4 |
+| **⌥ Option + ⇧ Maj** | Outils | Compresser, retirer le fond, découper un PDF |
+| **⌃ Contrôle + ⇧ Maj** | Actions fichier | AirDrop, créer un PDF, copier le chemin |
+| **⌘ Commande + ⇧ Maj** | Favoris | vos actions préférées |
+
+Les touches se changent dans **Réglages → Raccourcis** (cliquez sur l’éventail en haut à droite, puis **Réglages…**).
+
+**Vous ne voyez pas l’éventail en haut à droite ?** Sur un MacBook avec encoche, ou avec beaucoup d’icônes, il peut être caché derrière l’encoche. Double-cliquez à nouveau sur Eventail dans Applications : le guide s’ouvre et vous donne accès aux réglages.
+
+**Autorisation Accessibilité (recommandée)** : dans **Réglages → Général**, le bouton **Ouvrir les Réglages Système** vous mène au bon endroit. Elle permet à l’éventail de réagir instantanément quand vous changez de touche.
+
+## Mises à jour
+
+Quand une nouvelle version sort, Eventail l’annonce dans une petite fenêtre avec la liste des nouveautés et un bouton **Installer la mise à jour**. Vous pouvez aussi cliquer sur l’éventail en haut à droite → **Rechercher des mises à jour…**, ou retélécharger avec le bouton ci-dessus à tout moment.
 
 ## Confidentialité
 
