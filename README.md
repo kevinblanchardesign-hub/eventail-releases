@@ -79,7 +79,7 @@ Quand une nouvelle version sort, Eventail l’annonce dans une petite fenêtre a
 ## Confidentialité
 
 Tout se passe sur votre Mac. Aucun fichier, aucune métadonnée, aucune statistique n’est envoyé sur Internet : pas de compte, pas de serveur, pas de télémétrie.
-Seule exception, si vous l’acceptez : Eventail télécharge de temps en temps la liste des versions pour vous proposer les mises à jour (réglable dans Réglages → Général).
+Seule exception : Eventail télécharge toutes les 6 heures environ la liste des versions pour vous prévenir d’une mise à jour (désactivable dans Réglages → Général).
 
 ## Licence
 
