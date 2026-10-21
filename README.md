@@ -62,9 +62,9 @@ Eventail n’a **pas d’icône dans le Dock** : il vit dans la **barre des menu
 | Touche pendant le glisser | Éventail | Exemples |
 | --- | --- | --- |
 | **⇧ Maj** | Convertir | PNG → JPG, PDF → Word, MOV → MP4 |
-| **⌥ Option + ⇧ Maj** | Outils | Compresser chaque fichier, créer un ZIP, retirer le fond |
+| **⌥ Option + ⇧ Maj** | Outils | Compresser, annoter (flèches, texte, flou…), ajouter un fond, créer un ZIP |
 | **⌃ Contrôle + ⇧ Maj** | Actions fichier | AirDrop, créer un PDF, copier le chemin |
-| **⌘ Commande + ⇧ Maj** | Favoris | vos actions préférées |
+| **⌘ Commande + ⇧ Maj** | Favoris | vos actions préférées (à choisir dans Réglages → Favoris) |
 
 Les touches se changent dans **Réglages → Raccourcis** (cliquez sur l’éventail en haut à droite, puis **Réglages…**).
 
