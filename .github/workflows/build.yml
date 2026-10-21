@@ -3,10 +3,12 @@
 # kevinblanchardesign-hub/eventail; this workflow checks it out with the
 # CODE_TOKEN secret, builds it on macOS and publishes the dmg here.
 #
-# Every 10 minutes, "detect" looks for new commits on main and claude/*
+# Every 15 minutes, "detect" looks for new commits on main and claude/*
 # branches of the code repository (a commit is new until it carries the
 # "Eventail build" status). Main is built and published here; work branches
 # are built, tested and published to the private "latest-build" release only.
+# A push that changes build-request.txt (Claude does this after a code push)
+# or "Run workflow" starts the same check right away.
 #
 # Logs are public: no step prints source code (failures show only the
 # compiler's "error:" lines).
@@ -21,6 +23,9 @@ name: Build
 on:
   schedule:
     - cron: "*/15 * * * *"
+  push:
+    branches: [main]
+    paths: [build-request.txt]
   workflow_dispatch:
     inputs:
       ref:
