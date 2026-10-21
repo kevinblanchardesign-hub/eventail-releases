@@ -1,0 +1,490 @@
+# Builds Eventail for free: Actions minutes are unlimited in a public
+# repository. The code stays in the private repository
+# kevinblanchardesign-hub/eventail; this workflow checks it out with the
+# CODE_TOKEN secret, builds it on macOS and publishes the dmg here.
+#
+# Every 10 minutes, "detect" looks for new commits on main and claude/*
+# branches of the code repository (a commit is new until it carries the
+# "Eventail build" status). Main is built and published here; work branches
+# are built, tested and published to the private "latest-build" release only.
+#
+# Logs are public: no step prints source code (failures show only the
+# compiler's "error:" lines).
+#
+# Secrets (Settings → Secrets and variables → Actions):
+#   CODE_TOKEN           fine-grained token on kevinblanchardesign-hub/eventail:
+#                        Contents read/write, Commit statuses read/write
+#   SPARKLE_PRIVATE_KEY  in-app update signing key (never replace it)
+
+name: Build
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch of the code repository to build now (empty: any new commit)"
+        required: false
+        default: ""
+
+concurrency:
+  group: detect
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  CODE_REPO: kevinblanchardesign-hub/eventail
+  STATUS_CONTEXT: Eventail build
+
+jobs:
+  detect:
+    name: Look for new commits
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.find.outputs.matrix }}
+      count: ${{ steps.find.outputs.count }}
+    steps:
+      - name: Find commits to build
+        id: find
+        env:
+          GH_TOKEN: ${{ secrets.CODE_TOKEN }}
+          FORCED_REF: ${{ inputs.ref }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::notice::Add the CODE_TOKEN secret to start building."
+            echo "matrix=[]" >> "$GITHUB_OUTPUT"
+            echo "count=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # main was already published by the previous builder at this commit.
+          ALREADY_PUBLISHED="e74a8105f22226a01db0ae2d61543f2dafa3c093"
+          NOW=$(date +%s)
+          ITEMS="[]"
+          while read -r ref sha; do
+            [ -n "$ref" ] || continue
+            if [ -n "$FORCED_REF" ]; then
+              [ "$ref" = "$FORCED_REF" ] || continue
+            else
+              [ "$sha" = "$ALREADY_PUBLISHED" ] && continue
+              # Newest "Eventail build" status of this commit, if any.
+              LAST=$(gh api "repos/$CODE_REPO/commits/$sha/statuses" \
+                --jq "[.[] | select(.context == \"$STATUS_CONTEXT\")] | first | \"\(.state) \(.updated_at)\"")
+              if [ -n "$LAST" ] && [ "$LAST" != "null null" ]; then
+                read -r state updated <<< "$LAST"
+                age=$(( NOW - $(date -d "$updated" +%s) ))
+                # A pending build older than 3 hours never finished: try again.
+                if [ "$state" != "pending" ] || [ "$age" -lt 10800 ]; then
+                  continue
+                fi
+              fi
+            fi
+            echo "Build $ref at $sha"
+            gh api "repos/$CODE_REPO/statuses/$sha" -f state=pending -f context="$STATUS_CONTEXT" \
+              -f description="Building…" -f target_url="$RUN_URL" > /dev/null
+            publish=false
+            [ "$ref" = "main" ] && publish=true
+            ITEMS=$(jq -c --arg ref "$ref" --arg sha "$sha" --argjson publish "$publish" \
+              '. + [{ref: $ref, sha: $sha, publish: $publish}]' <<< "$ITEMS")
+          done < <(gh api "repos/$CODE_REPO/branches" --paginate \
+            --jq '.[] | select(.name == "main" or (.name | startswith("claude/"))) | "\(.name) \(.commit.sha)"')
+          echo "matrix=$ITEMS" >> "$GITHUB_OUTPUT"
+          echo "count=$(jq length <<< "$ITEMS")" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build ${{ matrix.ref }}
+    needs: detect
+    if: needs.detect.outputs.count != '0'
+    runs-on: macos-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include: ${{ fromJSON(needs.detect.outputs.matrix) }}
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+      DERIVED_DATA: build/DerivedData
+      # Developer ID signing and notarization stay off until these secrets exist.
+      HAS_DEVELOPER_ID: ${{ secrets.DEVELOPER_ID_CERT_P12 != '' && secrets.DEVELOPER_ID_CERT_PASSWORD != '' }}
+      HAS_NOTARY: ${{ secrets.APPLE_ID != '' && secrets.APPLE_TEAM_ID != '' && secrets.APPLE_APP_PASSWORD != '' }}
+      # Without the update signing key, builds ship with in-app updates off.
+      UPDATES_ENABLED: ${{ secrets.SPARKLE_PRIVATE_KEY != '' }}
+      RELEASES_REPO: ${{ github.repository }}
+      IS_MAIN_BUILD: ${{ matrix.publish }}
+      GH_TOKEN: ${{ secrets.CODE_TOKEN }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ env.CODE_REPO }}
+          ref: ${{ matrix.sha }}
+          token: ${{ secrets.CODE_TOKEN }}
+          persist-credentials: false
+
+      - name: Show toolchain
+        run: |
+          sw_vers
+          xcodebuild -version
+          swift --version
+
+      - name: Install build tools
+        run: brew install xcodegen librsvg create-dmg
+
+      - name: Compute version
+        id: version
+        run: |
+          base=$(awk -F'"' '/MARKETING_VERSION:/ {print $2; exit}' project.yml)
+          # Above every build number of the previous builder (it stopped at ~60),
+          # so Sparkle sees each new build as newer.
+          build=$(( 1000 + GITHUB_RUN_NUMBER ))
+          echo "version=$base-build$build" >> "$GITHUB_OUTPUT"
+          echo "marketing=$base" >> "$GITHUB_OUTPUT"
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+          echo "Eventail $base (build $build) from ${{ matrix.ref }} at ${{ matrix.sha }}"
+
+      - name: Fetch embedded tools
+        run: ./scripts/fetch-tools.sh
+
+      - name: Render icons and dmg background
+        run: ./scripts/make-icons.sh
+
+      - name: Build the update signing tool
+        run: |
+          mkdir -p build
+          swiftc -O scripts/update-signing.swift -o build/update-signing
+
+      - name: Configure in-app updates
+        if: env.UPDATES_ENABLED == 'true'
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          PUBLIC_KEY=$(build/update-signing public)
+          echo "SPARKLE_PUBLIC_KEY=$PUBLIC_KEY" >> "$GITHUB_ENV"
+          echo "SPARKLE_FEED_URL=https://github.com/$RELEASES_REPO/releases/download/latest-build/appcast.xml" >> "$GITHUB_ENV"
+          echo "Updates on, public key $PUBLIC_KEY"
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Run unit tests
+        run: |
+          mkdir -p build
+          xcodebuild test \
+            -project Eventail.xcodeproj \
+            -scheme Eventail \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$DERIVED_DATA" \
+            CODE_SIGN_IDENTITY=- \
+            > build/test.log 2>&1 || true
+          # Summary lines only: the full log would show code in this public repository.
+          grep -E "error:|Undefined symbol|Test Case .*(passed|failed)|Executed|\*\* TEST|EVENTAIL-DIAG" build/test.log || true
+          grep -q "\*\* TEST SUCCEEDED \*\*" build/test.log
+
+      - name: Build universal Release app
+        run: |
+          xcodebuild build \
+            -project Eventail.xcodeproj \
+            -scheme Eventail \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath "$DERIVED_DATA" \
+            ARCHS="arm64 x86_64" \
+            ONLY_ACTIVE_ARCH=NO \
+            MARKETING_VERSION="${{ steps.version.outputs.marketing }}" \
+            CURRENT_PROJECT_VERSION="${{ steps.version.outputs.build }}" \
+            SPARKLE_FEED_URL="${SPARKLE_FEED_URL:-}" \
+            SPARKLE_PUBLIC_KEY="${SPARKLE_PUBLIC_KEY:-}" \
+            > build/release.log 2>&1 || true
+          grep -E "error:|Undefined symbol|\*\* BUILD" build/release.log || true
+          grep -q "\*\* BUILD SUCCEEDED \*\*" build/release.log
+          APP="$DERIVED_DATA/Build/Products/Release/Eventail.app"
+          echo "APP=$APP" >> "$GITHUB_ENV"
+          lipo -archs "$APP/Contents/MacOS/Eventail"
+
+      - name: Ship the Sparkle license
+        run: |
+          LICENSE_FILE=$(find "$DERIVED_DATA/SourcePackages/checkouts" -maxdepth 2 -path '*/Sparkle/LICENSE' | head -n 1)
+          if [ -z "$LICENSE_FILE" ]; then
+            echo "::error::Sparkle's LICENSE was not found in the resolved packages."
+            exit 1
+          fi
+          cp "$LICENSE_FILE" "$APP/Contents/Resources/Sparkle-LICENSE.txt"
+
+      - name: Embed command-line tools
+        run: |
+          if [ -n "$(ls -A build/tools/bin 2>/dev/null)" ]; then
+            mkdir -p "$APP/Contents/Resources/bin"
+            cp build/tools/bin/* "$APP/Contents/Resources/bin/"
+          fi
+
+      - name: Sign ad-hoc
+        if: env.HAS_DEVELOPER_ID != 'true'
+        run: |
+          # No Hardened Runtime here: with it, macOS library validation refuses
+          # to load an ad-hoc signed framework (Sparkle) into an ad-hoc signed
+          # app on a real Mac, and Eventail quits silently at launch. The
+          # Hardened Runtime only matters for notarization (Developer ID step).
+          if [ -d "$APP/Contents/Resources/bin" ]; then
+            for tool in "$APP"/Contents/Resources/bin/*; do
+              codesign --force --sign - "$tool"
+            done
+          fi
+          # Sparkle's helpers first (inside out), then the framework.
+          SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
+          for item in "$SPARKLE"/Versions/B/XPCServices/*.xpc "$SPARKLE/Versions/B/Autoupdate" "$SPARKLE/Versions/B/Updater.app"; do
+            [ -e "$item" ] && codesign --force --sign - "$item"
+          done
+          [ -d "$SPARKLE" ] && codesign --force --sign - "$SPARKLE"
+          codesign --force \
+            --entitlements Eventail/Resources/Eventail.entitlements \
+            --sign - "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          # Guard against the regression: no runtime flag on any ad-hoc code.
+          if codesign -dv --verbose=4 "$APP" 2>&1 | grep -q "flags=.*runtime"; then
+            echo "::error::The ad-hoc build must not use the Hardened Runtime."
+            exit 1
+          fi
+
+      - name: Sign with Developer ID
+        if: env.HAS_DEVELOPER_ID == 'true'
+        env:
+          CERT_P12: ${{ secrets.DEVELOPER_ID_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
+          # Tolerate line breaks or spaces in the pasted base64 text.
+          printf '%s' "$CERT_P12" | tr -d ' \r\n' | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          rm -f "$RUNNER_TEMP/cert.p12"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          # Sign by certificate hash: unambiguous even if several certificates share a name.
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" | awk '/"Developer ID Application/ {print $2; exit}')
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::DEVELOPER_ID_CERT_P12 holds no valid \"Developer ID Application\" certificate with its private key."
+            security find-identity -p codesigning "$KEYCHAIN"
+            exit 1
+          fi
+          echo "IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+          # Inside out: embedded tools first, then the app that seals them.
+          if [ -d "$APP/Contents/Resources/bin" ]; then
+            for tool in "$APP"/Contents/Resources/bin/*; do
+              codesign --force --timestamp --options runtime --sign "$IDENTITY" "$tool"
+            done
+          fi
+          SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
+          for item in "$SPARKLE"/Versions/B/XPCServices/*.xpc "$SPARKLE/Versions/B/Autoupdate" "$SPARKLE/Versions/B/Updater.app"; do
+            [ -e "$item" ] || continue
+            # Only the Downloader service needs its own entitlements (Sparkle docs).
+            KEEP=()
+            [ "$(basename "$item")" = "Downloader.xpc" ] && KEEP=(--preserve-metadata=entitlements)
+            codesign --force --timestamp --options runtime ${KEEP[@]+"${KEEP[@]}"} --sign "$IDENTITY" "$item"
+          done
+          [ -d "$SPARKLE" ] && codesign --force --timestamp --options runtime --sign "$IDENTITY" "$SPARKLE"
+          codesign --force --timestamp --options runtime \
+            --entitlements Eventail/Resources/Eventail.entitlements \
+            --sign "$IDENTITY" "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign --display --verbose=2 "$APP" 2>&1 | grep -E "Authority|TeamIdentifier|Runtime|Timestamp"
+
+      - name: Launch the app once
+        run: |
+          # Catches a bundle that cannot start (signing, missing framework...).
+          csrutil status || true
+          "$APP/Contents/MacOS/Eventail" > build/launch.log 2>&1 &
+          PID=$!
+          sleep 10
+          if ! kill -0 "$PID" 2>/dev/null; then
+            echo "::error::Eventail quit right after launch."
+            cat build/launch.log
+            exit 1
+          fi
+          kill "$PID"
+          wait "$PID" 2>/dev/null || true
+          echo "Eventail started and kept running."
+
+      - name: Create dmg
+        run: |
+          DMG=$(./scripts/make-dmg.sh "$APP" "${{ steps.version.outputs.version }}" build/dist | tail -n 1)
+          echo "DMG=$DMG" >> "$GITHUB_ENV"
+
+      - name: Sign dmg with Developer ID
+        if: env.HAS_DEVELOPER_ID == 'true'
+        run: |
+          codesign --force --timestamp --sign "$IDENTITY" "$DMG"
+          codesign --verify --strict --verbose=2 "$DMG"
+
+      - name: Notarize and staple
+        if: env.HAS_DEVELOPER_ID == 'true' && env.HAS_NOTARY == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          AUTH=(--apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD")
+          RESULT=$(xcrun notarytool submit "$DMG" "${AUTH[@]}" --wait --timeout 45m --output-format json)
+          echo "$RESULT"
+          SUBMISSION=$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("id",""))' <<< "$RESULT")
+          STATUS=$(python3 -c 'import json,sys; print(json.load(sys.stdin).get("status",""))' <<< "$RESULT")
+          # notarytool can exit 0 on a rejected submission: check the status itself.
+          if [ "$STATUS" != "Accepted" ]; then
+            echo "::error::Notarization finished with status \"$STATUS\"."
+            [ -n "$SUBMISSION" ] && xcrun notarytool log "$SUBMISSION" "${AUTH[@]}"
+            exit 1
+          fi
+          xcrun stapler staple "$DMG"
+          xcrun stapler validate "$DMG"
+          spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG"
+
+      - name: Remove the signing keychain
+        if: always() && env.KEYCHAIN != ''
+        run: security delete-keychain "$KEYCHAIN" || true
+
+      - name: Name the dmg for the download link
+        run: |
+          # Copied after stapling so the fixed-name file carries the notarization ticket.
+          cp "$DMG" build/dist/Eventail.dmg
+          ls -lh build/dist
+
+      - name: Check the update tools
+        run: |
+          # A throwaway key exercises signing, verification and the feed on every build.
+          PUBLIC=$(build/update-signing generate "$RUNNER_TEMP/throwaway.key")
+          SIG=$(SPARKLE_PRIVATE_KEY="$(cat "$RUNNER_TEMP/throwaway.key")" build/update-signing sign "$DMG")
+          build/update-signing verify "$DMG" "$SIG" "$PUBLIC"
+          python3 scripts/make-appcast.py "${{ steps.version.outputs.marketing }}" "${{ steps.version.outputs.build }}" \
+            "https://example.invalid/$(basename "$DMG")" "$DMG" "$SIG" RELEASE_NOTES.md "$RUNNER_TEMP/appcast.xml"
+          xmllint --noout "$RUNNER_TEMP/appcast.xml"
+          rm -f "$RUNNER_TEMP/throwaway.key"
+
+      - name: Still the newest commit of main?
+        if: env.IS_MAIN_BUILD == 'true'
+        run: |
+          # Never publish an older build over a newer one.
+          HEAD=$(gh api "repos/$CODE_REPO/branches/main" --jq .commit.sha)
+          if [ "$HEAD" != "${{ matrix.sha }}" ]; then
+            echo "::notice::main moved on to $HEAD: this build is not published."
+            echo "IS_MAIN_BUILD=false" >> "$GITHUB_ENV"
+          fi
+
+      - name: Prepare the update feed
+        if: env.IS_MAIN_BUILD == 'true' && env.UPDATES_ENABLED == 'true'
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          SIG=$(build/update-signing sign "$DMG")
+          build/update-signing verify "$DMG" "$SIG" "$SPARKLE_PUBLIC_KEY"
+          python3 scripts/make-appcast.py "${{ steps.version.outputs.marketing }}" "${{ steps.version.outputs.build }}" \
+            "https://github.com/$RELEASES_REPO/releases/download/latest-build/$(basename "$DMG")" \
+            "$DMG" "$SIG" RELEASE_NOTES.md build/dist/appcast.xml
+          xmllint --noout build/dist/appcast.xml
+          cat build/dist/appcast.xml
+
+      # Builds of main refresh the "latest-build" release of this repository, so
+      # releases/download/latest-build/Eventail.dmg is always the newest app.
+      - name: Update the public download page
+        if: env.IS_MAIN_BUILD == 'true'
+        env:
+          PUSH_TOKEN: ${{ github.token }}
+        run: |
+          WORK="$RUNNER_TEMP/eventail-releases"
+          git clone --depth 1 "https://x-access-token:${PUSH_TOKEN}@github.com/${RELEASES_REPO}.git" "$WORK"
+          mkdir -p "$WORK/assets"
+          cp release-repo/README.md LICENSE "$WORK/"
+          cp assets/logo.svg assets/download-button.svg "$WORK/assets/"
+          git -C "$WORK" add -A
+          if git -C "$WORK" diff --cached --quiet; then
+            echo "The public page is already up to date."
+          else
+            git -C "$WORK" -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -m "Update the download page"
+            git -C "$WORK" push origin HEAD
+          fi
+
+      - name: Publish latest build (public)
+        if: env.IS_MAIN_BUILD == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-build
+          name: Eventail – dernière version
+          # A regular release marked "Latest": it is the public download.
+          prerelease: false
+          make_latest: true
+          overwrite_files: true
+          # The versioned copy is what the update feed points to.
+          files: |
+            build/dist/Eventail.dmg
+            ${{ env.DMG }}
+          body: |
+            **Version :** ${{ steps.version.outputs.version }} · macOS 14 Sonoma ou plus récent, Apple Silicon et Intel
+
+            1. Téléchargez **Eventail.dmg** ci-dessous, ouvrez-le et glissez Eventail dans le dossier **Applications**.
+            2. Double-cliquez sur Eventail. La première fois, macOS affiche « Eventail n’a pas été ouvert » : cliquez sur **Terminé**.
+            3. Menu  → **Réglages Système** → **Confidentialité et sécurité** → en bas, **Ouvrir quand même**, puis confirmez avec votre mot de passe. À faire une seule fois.
+
+      - name: Publish the update feed
+        if: env.IS_MAIN_BUILD == 'true' && env.UPDATES_ENABLED == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # After the dmg is online, so the feed never points to a missing file.
+          gh release upload latest-build build/dist/appcast.xml --clobber --repo "$RELEASES_REPO"
+          # Keep the three newest versioned dmgs (people may be mid-update).
+          OLD=$(gh release view latest-build --repo "$RELEASES_REPO" --json assets \
+            --jq '[.assets[] | select(.name | test("^Eventail-.+\\.dmg$"))] | sort_by(.createdAt) | reverse | .[3:] | .[].name')
+          for asset in $OLD; do
+            gh release delete-asset latest-build "$asset" --yes --repo "$RELEASES_REPO"
+          done
+
+      # The private "latest-build" release gets every build, main or work
+      # branch: it is the download button of the private README (test builds).
+      - name: Move the private latest-build tag to this commit
+        run: |
+          if gh api "repos/$CODE_REPO/git/refs/tags/latest-build" > /dev/null 2>&1; then
+            gh api -X PATCH "repos/$CODE_REPO/git/refs/tags/latest-build" -f sha="${{ matrix.sha }}" -F force=true > /dev/null
+          else
+            gh api "repos/$CODE_REPO/git/refs" -f ref=refs/tags/latest-build -f sha="${{ matrix.sha }}" > /dev/null
+          fi
+
+      - name: Publish latest test build (private)
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: ${{ env.CODE_REPO }}
+          token: ${{ secrets.CODE_TOKEN }}
+          tag_name: latest-build
+          name: Dernière version (privée)
+          prerelease: true
+          make_latest: false
+          overwrite_files: true
+          files: build/dist/Eventail.dmg
+          body: |
+            Construite automatiquement à chaque mise à jour du code (branche `${{ matrix.ref }}`).
+
+            **Version :** ${{ steps.version.outputs.version }} · commit ${{ matrix.sha }}
+
+            Téléchargez **Eventail.dmg** ci-dessous, puis suivez la section « Installer » du README.
+
+      - name: Report the result on the commit
+        if: always()
+        run: |
+          case "${{ job.status }}" in
+            success) state=success; text="Built and tested" ;;
+            failure) state=failure; text="Build failed" ;;
+            *)       state=error;   text="Build stopped" ;;
+          esac
+          gh api "repos/$CODE_REPO/statuses/${{ matrix.sha }}" -f state="$state" \
+            -f context="$STATUS_CONTEXT" -f description="$text" -f target_url="$RUN_URL" > /dev/null
