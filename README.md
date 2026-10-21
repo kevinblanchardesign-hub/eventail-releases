@@ -57,12 +57,12 @@ C’est fini : les fois suivantes, Eventail s’ouvre normalement.
 
 Eventail n’a **pas d’icône dans le Dock** : il vit dans la **barre des menus**, en haut à droite de l’écran (un petit éventail). À l’ouverture, un message « Eventail est ouvert dans la barre des menus » le confirme. La première fois, un guide de bienvenue vous présente le geste.
 
-**Le geste** : dans le Finder, commencez à faire glisser un fichier, puis **pendant le glisser** maintenez une touche. Un éventail d’actions s’ouvre autour du pointeur. Lâchez le fichier sur une case : c’est fait, le résultat apparaît à côté de l’original (l’original n’est jamais modifié).
+**Le geste** : dans le Finder, commencez à faire glisser un fichier, puis **pendant le glisser** appuyez sur une touche (un simple appui suffit : l’éventail reste ouvert tant que vous glissez). Un éventail d’actions s’ouvre autour du pointeur. Lâchez le fichier sur une case : c’est fait, le résultat apparaît à côté de l’original (l’original n’est jamais modifié).
 
 | Touche pendant le glisser | Éventail | Exemples |
 | --- | --- | --- |
 | **⇧ Maj** | Convertir | PNG → JPG, PDF → Word, MOV → MP4 |
-| **⌥ Option + ⇧ Maj** | Outils | Compresser, retirer le fond, découper un PDF |
+| **⌥ Option + ⇧ Maj** | Outils | Compresser chaque fichier, créer un ZIP, retirer le fond |
 | **⌃ Contrôle + ⇧ Maj** | Actions fichier | AirDrop, créer un PDF, copier le chemin |
 | **⌘ Commande + ⇧ Maj** | Favoris | vos actions préférées |
 
