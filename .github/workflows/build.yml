@@ -90,8 +90,13 @@ jobs:
             [ "$ref" = "main" ] && publish=true
             ITEMS=$(jq -c --arg ref "$ref" --arg sha "$sha" --argjson publish "$publish" \
               '. + [{ref: $ref, sha: $sha, publish: $publish}]' <<< "$ITEMS")
-          done < <(gh api "repos/$CODE_REPO/branches" --paginate \
-            --jq '.[] | select(.name == "main" or (.name | startswith("claude/"))) | "\(.name) \(.commit.sha)"')
+          done < <(
+            # main first; a work branch sitting on main's commit is built by main.
+            MAIN_SHA=$(gh api "repos/$CODE_REPO/branches/main" --jq .commit.sha)
+            echo "main $MAIN_SHA"
+            gh api "repos/$CODE_REPO/branches" --paginate \
+              --jq ".[] | select((.name | startswith(\"claude/\")) and .commit.sha != \"$MAIN_SHA\") | \"\\(.name) \\(.commit.sha)\""
+          )
           echo "matrix=$ITEMS" >> "$GITHUB_OUTPUT"
           echo "count=$(jq length <<< "$ITEMS")" >> "$GITHUB_OUTPUT"
 
