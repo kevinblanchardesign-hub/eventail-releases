@@ -53,6 +53,13 @@ jobs:
       matrix: ${{ steps.find.outputs.matrix }}
       count: ${{ steps.find.outputs.count }}
     steps:
+      - name: Read the build request
+        if: github.event_name == 'push'
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: build-request.txt
+          sparse-checkout-cone-mode: false
+
       - name: Find commits to build
         id: find
         env:
@@ -60,6 +67,11 @@ jobs:
           FORCED_REF: ${{ inputs.ref }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          # A "ref=<branch>" line in build-request.txt rebuilds that branch even
+          # if its commit was already built.
+          if [ -z "$FORCED_REF" ] && [ -f build-request.txt ]; then
+            FORCED_REF=$(sed -n 's/^ref=//p' build-request.txt | head -n 1)
+          fi
           if [ -z "$GH_TOKEN" ]; then
             echo "::notice::Add the CODE_TOKEN secret to start building."
             echo "matrix=[]" >> "$GITHUB_OUTPUT"
