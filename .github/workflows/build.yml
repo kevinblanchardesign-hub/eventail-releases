@@ -195,7 +195,7 @@ jobs:
             CODE_SIGN_IDENTITY=- \
             > build/test.log 2>&1 || true
           # Summary lines only: the full log would show code in this public repository.
-          grep -E "error:|Undefined symbol|Test Case .*(passed|failed)|Executed|\*\* TEST|EVENTAIL-DIAG" build/test.log || true
+          grep -E "error:|Undefined symbol|Test Case .*(passed|failed)|Executed|\*\* TEST|EVENTAIL-DIAG|Restarting|crash|exited|Testing failed|Fatal|signal [0-9]" build/test.log || true
           grep -q "\*\* TEST SUCCEEDED \*\*" build/test.log
 
       - name: Build universal Release app
