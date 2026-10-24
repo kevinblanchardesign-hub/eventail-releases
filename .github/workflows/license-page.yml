@@ -1,0 +1,69 @@
+# Deploys the page shown after an Eventail Premium purchase (license-page/ in
+# the private code repository) to Vercel. Runs on "Run workflow", or when
+# license-page-request.txt changes (its first line: the branch to deploy).
+#
+# Secrets (Settings → Secrets and variables → Actions):
+#   VERCEL_TOKEN         Vercel → Account Settings → Tokens
+#   STRIPE_SECRET_KEY    Stripe restricted key, Checkout Sessions: read
+#   SPARKLE_PRIVATE_KEY  already there (the license key is derived from it)
+#   CODE_TOKEN           already there (reads the private code)
+name: License page
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch of the code repository to deploy"
+        default: main
+  push:
+    branches: [main]
+    paths: [license-page-request.txt]
+
+permissions:
+  contents: read
+
+env:
+  CODE_REPO: kevinblanchardesign-hub/eventail
+  # Public key embedded in the app: the deployed signing key must match it.
+  EXPECTED_LICENSE_PUBLIC_KEY: yMHy3gtd+SeG50iIrnIV7QX5iV50ikrM0M3VUcDnhmQ=
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Read the branch to deploy
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: license-page-request.txt
+          sparse-checkout-cone-mode: false
+          path: request
+
+      - name: Pick the branch
+        id: ref
+        env:
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          REF="$INPUT_REF"
+          if [ -z "$REF" ] && [ -f request/license-page-request.txt ]; then
+            REF=$(head -n 1 request/license-page-request.txt | tr -d '[:space:]')
+          fi
+          echo "ref=${REF:-main}" >> "$GITHUB_OUTPUT"
+          echo "Deploying ${REF:-main}"
+
+      - name: Check out the code
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ env.CODE_REPO }}
+          ref: ${{ steps.ref.outputs.ref }}
+          token: ${{ secrets.CODE_TOKEN }}
+          persist-credentials: false
+          path: code
+
+      - name: Deploy to Vercel
+        working-directory: code
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: node scripts/deploy-license-page.mjs
