@@ -26,6 +26,8 @@ env:
   CODE_REPO: kevinblanchardesign-hub/eventail
   # Public key embedded in the app: the deployed signing key must match it.
   EXPECTED_LICENSE_PUBLIC_KEY: yMHy3gtd+SeG50iIrnIV7QX5iV50ikrM0M3VUcDnhmQ=
+  # Kevin's Vercel team (not a secret): lets VERCEL_TOKEN be limited to the project.
+  VERCEL_TEAM_ID: team_4RBufo6LIrJFaQ0xMhL1ql4e
 
 jobs:
   deploy:
