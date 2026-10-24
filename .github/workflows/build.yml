@@ -264,31 +264,67 @@ jobs:
             cp build/tools/bin/* "$APP/Contents/Resources/bin/"
           fi
 
-      - name: Sign ad-hoc
+      - name: Prepare the stable signing identity
+        # macOS keeps permissions (Accessibility…) per signing identity. An
+        # ad-hoc signature changes with every build, so updates lost them. A
+        # self-signed certificate derived from a secret is the same on every
+        # build: permissions survive updates. Free, no Apple account.
+        if: env.HAS_DEVELOPER_ID != 'true'
+        env:
+          SIGNING_SEED: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          if [ -z "$SIGNING_SEED" ] || [ ! -f scripts/make-signing-identity.py ]; then
+            echo "No signing seed or script: ad-hoc signing."
+            exit 0
+          fi
+          python3 -m venv "$RUNNER_TEMP/signing-venv"
+          "$RUNNER_TEMP/signing-venv/bin/pip" install --quiet cryptography
+          P12="$RUNNER_TEMP/eventail-signing.p12"
+          FINGERPRINT=$("$RUNNER_TEMP/signing-venv/bin/python" scripts/make-signing-identity.py "$P12" eventail)
+          echo "Signing certificate SHA-256: $FINGERPRINT"
+          KC="$RUNNER_TEMP/eventail-signing.keychain-db"
+          security create-keychain -p eventail "$KC"
+          security set-keychain-settings -lut 21600 "$KC"
+          security unlock-keychain -p eventail "$KC"
+          security import "$P12" -k "$KC" -P eventail -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k eventail "$KC" > /dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          rm -f "$P12"
+          ID=$(security find-identity -p codesigning "$KC" | awk '/"Eventail Local Signing"/ {print $2; exit}')
+          if [ -z "$ID" ]; then
+            echo "::warning::The signing identity was not imported: ad-hoc signing."
+            exit 0
+          fi
+          echo "SIGN_ID=$ID" >> "$GITHUB_ENV"
+
+      - name: Sign ad-hoc or with the stable identity
         if: env.HAS_DEVELOPER_ID != 'true'
         run: |
           # No Hardened Runtime here: with it, macOS library validation refuses
-          # to load an ad-hoc signed framework (Sparkle) into an ad-hoc signed
-          # app on a real Mac, and Eventail quits silently at launch. The
-          # Hardened Runtime only matters for notarization (Developer ID step).
+          # to load a framework (Sparkle) not signed by Apple or a Developer ID
+          # team, and Eventail quits silently at launch. The Hardened Runtime
+          # only matters for notarization (Developer ID step).
+          SIGN="${SIGN_ID:--}"
           if [ -d "$APP/Contents/Resources/bin" ]; then
             for tool in "$APP"/Contents/Resources/bin/*; do
-              codesign --force --sign - "$tool"
+              codesign --force --sign "$SIGN" "$tool"
             done
           fi
           # Sparkle's helpers first (inside out), then the framework.
           SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
           for item in "$SPARKLE"/Versions/B/XPCServices/*.xpc "$SPARKLE/Versions/B/Autoupdate" "$SPARKLE/Versions/B/Updater.app"; do
-            [ -e "$item" ] && codesign --force --sign - "$item"
+            [ -e "$item" ] && codesign --force --sign "$SIGN" "$item"
           done
-          [ -d "$SPARKLE" ] && codesign --force --sign - "$SPARKLE"
+          [ -d "$SPARKLE" ] && codesign --force --sign "$SIGN" "$SPARKLE"
           codesign --force \
             --entitlements Eventail/Resources/Eventail.entitlements \
-            --sign - "$APP"
+            --sign "$SIGN" "$APP"
           codesign --verify --deep --strict --verbose=2 "$APP"
-          # Guard against the regression: no runtime flag on any ad-hoc code.
+          # The requirement macOS uses to recognise Eventail across updates.
+          codesign -d -r- "$APP" 2>&1 | grep -E "designated" || true
+          # Guard against the regression: no runtime flag outside Developer ID.
           if codesign -dv --verbose=4 "$APP" 2>&1 | grep -q "flags=.*runtime"; then
-            echo "::error::The ad-hoc build must not use the Hardened Runtime."
+            echo "::error::This build must not use the Hardened Runtime."
             exit 1
           fi
 
