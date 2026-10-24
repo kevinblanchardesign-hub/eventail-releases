@@ -192,6 +192,12 @@ jobs:
           echo "SPARKLE_PUBLIC_KEY=$PUBLIC_KEY" >> "$GITHUB_ENV"
           echo "SPARKLE_FEED_URL=https://github.com/$RELEASES_REPO/releases/download/latest-build/appcast.xml" >> "$GITHUB_ENV"
           echo "Updates on, public key $PUBLIC_KEY"
+          # Eventail Premium: license keys are checked with this public key.
+          LICENSE_KEY=$(build/update-signing license-public 2>/dev/null || true)
+          if [ -n "$LICENSE_KEY" ]; then
+            echo "LICENSE_PUBLIC_KEY=$LICENSE_KEY" >> "$GITHUB_ENV"
+            echo "License public key $LICENSE_KEY"
+          fi
 
       - name: Generate Xcode project
         run: xcodegen generate
@@ -241,6 +247,7 @@ jobs:
             CURRENT_PROJECT_VERSION="${{ steps.version.outputs.build }}" \
             SPARKLE_FEED_URL="${SPARKLE_FEED_URL:-}" \
             SPARKLE_PUBLIC_KEY="${SPARKLE_PUBLIC_KEY:-}" \
+            LICENSE_PUBLIC_KEY="${LICENSE_PUBLIC_KEY:-}" \
             > build/release.log 2>&1 || true
           grep -E "error:|Undefined symbol|\*\* BUILD" build/release.log || true
           grep -q "\*\* BUILD SUCCEEDED \*\*" build/release.log
