@@ -235,6 +235,10 @@ jobs:
 
       - name: Build universal Release app
         run: |
+          # Test builds (branches) buy on the Stripe test page; main uses the
+          # real one (PURCHASE_URL in project.yml, empty until the shop opens).
+          EXTRA=()
+          if [ "$IS_MAIN_BUILD" != "true" ]; then EXTRA=('PURCHASE_URL=$(PURCHASE_URL_TEST)'); fi
           xcodebuild build \
             -project Eventail.xcodeproj \
             -scheme Eventail \
@@ -248,6 +252,7 @@ jobs:
             SPARKLE_FEED_URL="${SPARKLE_FEED_URL:-}" \
             SPARKLE_PUBLIC_KEY="${SPARKLE_PUBLIC_KEY:-}" \
             LICENSE_PUBLIC_KEY="${LICENSE_PUBLIC_KEY:-}" \
+            "${EXTRA[@]}" \
             > build/release.log 2>&1 || true
           grep -E "error:|Undefined symbol|\*\* BUILD" build/release.log || true
           grep -q "\*\* BUILD SUCCEEDED \*\*" build/release.log
