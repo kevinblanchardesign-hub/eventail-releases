@@ -1,0 +1,4 @@
+tag=archive-free-0.6.0
+asset=Eventail-0.6.0-build1030.dmg
+title=Eventail 0.6.0 – archive de la version gratuite
+notes=Dernière version d'Eventail entièrement gratuite, avant le passage au Premium. Gardée ici pour pouvoir revenir en arrière.

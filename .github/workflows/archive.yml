@@ -1,0 +1,44 @@
+# Keeps a version of Eventail for good: copies one dmg from "latest-build"
+# (where only the three newest stay) into its own permanent release.
+# Started by a push that changes archive-request.txt, which holds:
+#   tag=<release tag>        e.g. archive-free-0.6.0
+#   asset=<dmg name>         e.g. Eventail-0.6.0-build1030.dmg
+#   title=<release title>
+#   notes=<one line shown on the release page>
+
+name: Archive
+
+on:
+  push:
+    branches: [main]
+    paths: [archive-request.txt]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: archive-request.txt
+          sparse-checkout-cone-mode: false
+      - name: Copy the dmg into its own release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          value() { sed -n "s/^$1=//p" archive-request.txt | head -n 1; }
+          TAG=$(value tag); ASSET=$(value asset); TITLE=$(value title); NOTES=$(value notes)
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Release $TAG already exists: nothing to do."
+            exit 0
+          fi
+          mkdir -p dl
+          gh release download latest-build --repo "$GITHUB_REPOSITORY" --pattern "$ASSET" --dir dl
+          cp "dl/$ASSET" dl/Eventail.dmg
+          gh release create "$TAG" "dl/$ASSET" dl/Eventail.dmg --repo "$GITHUB_REPOSITORY" \
+            --target main --title "$TITLE" --notes "$NOTES" --latest=false
+          echo "Archived $ASSET as $TAG."
