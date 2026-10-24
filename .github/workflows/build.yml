@@ -210,6 +210,23 @@ jobs:
           grep -E "error:|Undefined symbol|Test Case .*(passed|failed)|Executed|\*\* TEST|EVENTAIL-DIAG|Restarting|crash|exited|Testing failed|Fatal|signal [0-9]" build/test.log || true
           grep -q "\*\* TEST SUCCEEDED \*\*" build/test.log
 
+      - name: Publish UI snapshots
+        # Pictures of the interface taken by the tests (UISnapshotTests), so
+        # the layout can be checked without a Mac. Not code: safe to publish.
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          files=(/tmp/eventail-snapshots/*.png)
+          if [ ${#files[@]} -eq 0 ]; then echo "No snapshot."; exit 0; fi
+          if ! gh release view ui-snapshots --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release create ui-snapshots --repo "$GITHUB_REPOSITORY" --prerelease --latest=false \
+              --title "UI snapshots (CI)" --notes "Interface pictures taken by the tests of the last build."
+          fi
+          gh release upload ui-snapshots "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+          printf '%s\n' "${files[@]##*/}"
+
       - name: Build universal Release app
         run: |
           xcodebuild build \
