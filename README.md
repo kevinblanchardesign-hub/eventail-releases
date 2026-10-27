@@ -61,12 +61,12 @@ Eventail n’a **pas d’icône dans le Dock** : il vit dans la **barre des menu
 
 | Touche pendant le glisser | Éventail | Exemples |
 | --- | --- | --- |
-| **⇧ Maj** | Convertir | PNG → JPG, PDF → Word, MOV → MP4 |
-| **⌥ Option + ⇧ Maj** | Outils | Compresser, annoter (flèches, texte, flou…), pivoter, modifier un PDF, créer un ZIP |
-| **⌃ Contrôle + ⇧ Maj** | Actions fichier | AirDrop, créer un PDF, copier le texte d’une image ou d’un PDF |
-| **⌘ Commande + ⇧ Maj** | Favoris | vos actions préférées (à choisir dans Réglages → Favoris) |
+| **⌃ Contrôle** | Convertir | PNG → JPG, PDF → Word, MOV → MP4 |
+| **⌥ Option** | Outils | Compresser, annoter (flèches, texte, flou…), pivoter, modifier un PDF, créer un ZIP |
+| **⌘ Commande** | Actions fichier | AirDrop, créer un PDF, copier le texte d’une image ou d’un PDF |
+| **⇧ Maj** | Favoris | vos actions préférées (à choisir dans Réglages → Favoris) |
 
-Les touches se changent dans **Réglages → Raccourcis** (cliquez sur l’éventail en haut à droite, puis **Réglages…**).
+Les touches se changent dans **Réglages → Eventail** (cliquez sur l’éventail en haut à droite, puis **Réglages…**).
 
 **Vous ne voyez pas l’éventail en haut à droite ?** Sur un MacBook avec encoche, ou avec beaucoup d’icônes, il peut être caché derrière l’encoche. Double-cliquez à nouveau sur Eventail dans Applications : le guide s’ouvre et vous donne accès aux réglages.
 
