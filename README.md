@@ -16,6 +16,7 @@
 
 <p align="center">
   <a href="https://github.com/kevinblanchardesign-hub/eventail-releases/releases/download/latest-build/Eventail.dmg"><b>Télécharger pour macOS</b></a> ·
+  <a href="#sur-windows-aperçu"><b>Windows (aperçu)</b></a> ·
   <a href="#installer-en-3-étapes">Installer</a> ·
   <a href="#utiliser-eventail">Utiliser</a> ·
   <a href="https://github.com/kevinblanchardesign-hub/eventail-releases/releases">Toutes les versions</a> ·
@@ -71,6 +72,16 @@ Les touches se changent dans **Réglages → Eventail** (cliquez sur l’éventa
 **Vous ne voyez pas l’éventail en haut à droite ?** Sur un MacBook avec encoche, ou avec beaucoup d’icônes, il peut être caché derrière l’encoche. Double-cliquez à nouveau sur Eventail dans Applications : le guide s’ouvre et vous donne accès aux réglages.
 
 **Autorisation Accessibilité (recommandée)** : dans **Réglages → Général**, le bouton **Ouvrir les Réglages Système** vous mène au bon endroit. Elle permet à l’éventail de réagir instantanément quand vous changez de touche.
+
+## Sur Windows (aperçu)
+
+Une première version pour **Windows 10 et 11**, avec le même éventail. Dans l’Explorateur, commencez à faire glisser un fichier, puis **pendant le glisser** appuyez sur **Ctrl** (Convertir), **Alt** (Outils) ou **Maj** (Actions fichier).
+
+1. Téléchargez **[Eventail-Setup.exe](https://github.com/kevinblanchardesign-hub/eventail-releases/releases/download/windows-preview/Eventail-Setup.exe)** et double-cliquez dessus.
+2. Si Windows affiche « Windows a protégé votre ordinateur » : cliquez sur **Informations complémentaires**, puis **Exécuter quand même** (l’app n’a pas encore de certificat Microsoft).
+3. Cliquez sur **Suivant** jusqu’au bout (pas besoin de mot de passe administrateur). Eventail attend ensuite dans la zone de notification, en bas à droite près de l’horloge.
+
+Pour l’instant : conversions d’images (JPG, PNG, PDF, GIF, TIFF, BMP, ICO), compresser, pivoter, créer un ZIP, copier, déplacer, copier le chemin. Le reste arrive par étapes.
 
 ## Mises à jour
 
