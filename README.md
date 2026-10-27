@@ -11,16 +11,13 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/kevinblanchardesign-hub/eventail-releases/releases/download/latest-build/Eventail.dmg"><img src="assets/download-button.svg" alt="Télécharger Eventail pour macOS (.dmg)" width="380"></a>
-  &nbsp;
-  <a href="https://github.com/kevinblanchardesign-hub/eventail-releases/releases/download/windows-preview/Eventail-Setup.exe"><img src="assets/download-windows.svg" alt="Télécharger Eventail pour Windows (.exe)" width="380"></a>
+  <a href="https://github.com/kevinblanchardesign-hub/eventail-releases/releases/download/latest-build/Eventail.dmg"><img src="assets/download-button.svg" alt="Télécharger Eventail (.dmg pour Mac)" width="410"></a>
 </p>
 
 <p align="center">
   <a href="https://github.com/kevinblanchardesign-hub/eventail-releases/releases/download/latest-build/Eventail.dmg"><b>Télécharger pour macOS</b></a> ·
-  <a href="https://github.com/kevinblanchardesign-hub/eventail-releases/releases/download/windows-preview/Eventail-Setup.exe"><b>Télécharger pour Windows</b></a> ·
-  <a href="#installer-sur-windows">Installer sur Windows</a> ·
-  <a href="#installer-en-3-étapes">Installer sur Mac</a> ·
+  <a href="#sur-windows-aperçu"><b>Windows (aperçu)</b></a> ·
+  <a href="#installer-en-3-étapes">Installer</a> ·
   <a href="#utiliser-eventail">Utiliser</a> ·
   <a href="https://github.com/kevinblanchardesign-hub/eventail-releases/releases">Toutes les versions</a> ·
   <a href="LICENSE">Licence</a>
@@ -76,9 +73,9 @@ Les touches se changent dans **Réglages → Eventail** (cliquez sur l’éventa
 
 **Autorisation Accessibilité (recommandée)** : dans **Réglages → Général**, le bouton **Ouvrir les Réglages Système** vous mène au bon endroit. Elle permet à l’éventail de réagir instantanément quand vous changez de touche.
 
-## Installer sur Windows
+## Sur Windows (aperçu)
 
-Eventail existe aussi pour **Windows 10 et 11** (première version), avec le même éventail. Dans l’Explorateur, commencez à faire glisser un fichier, puis **pendant le glisser** appuyez sur **Ctrl** (Convertir), **Alt** (Outils) ou **Maj** (Actions fichier).
+Une première version pour **Windows 10 et 11**, avec le même éventail. Dans l’Explorateur, commencez à faire glisser un fichier, puis **pendant le glisser** appuyez sur **Ctrl** (Convertir), **Alt** (Outils) ou **Maj** (Actions fichier).
 
 1. Téléchargez **[Eventail-Setup.exe](https://github.com/kevinblanchardesign-hub/eventail-releases/releases/download/windows-preview/Eventail-Setup.exe)** et double-cliquez dessus.
 2. Si Windows affiche « Windows a protégé votre ordinateur » : cliquez sur **Informations complémentaires**, puis **Exécuter quand même** (l’app n’a pas encore de certificat Microsoft).
