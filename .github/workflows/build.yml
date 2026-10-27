@@ -230,7 +230,13 @@ jobs:
             gh release create ui-snapshots --repo "$GITHUB_REPOSITORY" --prerelease --latest=false \
               --title "UI snapshots (CI)" --notes "Interface pictures taken by the tests of the last build."
           fi
-          gh release upload ui-snapshots "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+          # Two builds at once can replace the same pictures: retry, and never
+          # fail the build for pictures (they only help checking the design).
+          for attempt in 1 2 3; do
+            if gh release upload ui-snapshots "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"; then break; fi
+            if [ "$attempt" = 3 ]; then echo "::warning::UI snapshots not published"; exit 0; fi
+            sleep $((attempt * 20))
+          done
           printf '%s\n' "${files[@]##*/}"
 
       - name: Build universal Release app
