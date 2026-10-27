@@ -1,2 +1,2 @@
-ref=claude/intelligent-planck-3geho7
-Tue Oct 27 15:46:58 UTC 2026
+ref=main
+Tue Oct 27 17:10:10 UTC 2026
