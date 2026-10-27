@@ -1,0 +1,201 @@
+# Builds Eventail for Windows for free (public repository: unlimited
+# minutes). The code is in the private repository, folder windows/; this
+# workflow checks it out with CODE_TOKEN, tests it, builds a self-contained
+# app and an installer (Inno Setup), and publishes Eventail-Setup.exe in the
+# "windows-preview" release here. Pictures of the screens go to
+# "ui-snapshots" (win-*.png).
+#
+# Started by a push that changes windows-build-request.txt (first line
+# "ref=<branch>", main by default) or by "Run workflow".
+#
+# Logs are public: no step prints source code.
+
+name: Build Windows
+
+on:
+  push:
+    branches: [main]
+    paths: [windows-build-request.txt]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch of the code repository to build"
+        required: false
+        default: "main"
+
+concurrency:
+  group: windows-build
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  CODE_REPO: kevinblanchardesign-hub/eventail
+  STATUS_CONTEXT: Eventail Windows build
+
+jobs:
+  prepare:
+    name: Prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      ref: ${{ steps.ref.outputs.ref }}
+      sha: ${{ steps.ref.outputs.sha }}
+    steps:
+      - name: Read the build request
+        if: github.event_name == 'push'
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: windows-build-request.txt
+          sparse-checkout-cone-mode: false
+
+      - name: Find the commit
+        id: ref
+        env:
+          GH_TOKEN: ${{ secrets.CODE_TOKEN }}
+          INPUT_REF: ${{ inputs.ref }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          REF="$INPUT_REF"
+          if [ -z "$REF" ] && [ -f windows-build-request.txt ]; then
+            REF=$(sed -n 's/^ref=//p' windows-build-request.txt | head -n 1)
+          fi
+          REF=${REF:-main}
+          SHA=$(gh api "repos/$CODE_REPO/branches/$REF" --jq .commit.sha)
+          echo "Build $REF at $SHA"
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          gh api "repos/$CODE_REPO/statuses/$SHA" -f state=pending -f context="$STATUS_CONTEXT" \
+            -f description="Building…" -f target_url="$RUN_URL" > /dev/null
+
+      - name: Check out the code
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ env.CODE_REPO }}
+          ref: ${{ steps.ref.outputs.sha }}
+          token: ${{ secrets.CODE_TOKEN }}
+          path: code
+          sparse-checkout: |
+            assets
+            scripts
+
+      - name: Make the icons
+        run: |
+          sudo apt-get install -y -q librsvg2-bin > /dev/null
+          python3 -m pip install -q pillow
+          bash code/scripts/make-windows-icons.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-icons
+          path: code/windows/Eventail/Assets/
+
+  build:
+    name: Build ${{ needs.prepare.outputs.ref }}
+    needs: prepare
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ env.CODE_REPO }}
+          ref: ${{ needs.prepare.outputs.sha }}
+          token: ${{ secrets.CODE_TOKEN }}
+          path: code
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-icons
+          path: code/windows/Eventail/Assets
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Test
+        shell: bash
+        run: dotnet test code/windows/Eventail.Core.Tests -c Release -nologo -v minimal
+
+      - name: Build the app
+        shell: bash
+        run: |
+          dotnet publish code/windows/Eventail/Eventail.csproj -c Release -r win-x64 --self-contained true \
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:EnableCompressionInSingleFile=true -p:DebugType=none \
+            -p:BuildNumber="$BUILD_NUMBER" -o code/windows/out/publish -nologo -v minimal
+
+      - name: Draw the screens
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "code/windows/out/publish/Eventail.exe" `
+            -ArgumentList "--snapshots", "$PWD/snapshots" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Write-Error "Snapshots failed ($($p.ExitCode))"; exit 1 }
+          Get-ChildItem snapshots | Select-Object Name, Length
+
+      - name: Make the installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress | Out-Null
+          }
+          $version = (Select-String -Path code/windows/Directory.Build.props -Pattern '<EventailVersion>(.*)</EventailVersion>').Matches[0].Groups[1].Value
+          & $iscc /Q "/DAppVersion=$version.$env:BUILD_NUMBER" "/DPublishDir=$PWD\code\windows\out\publish" "/DOutputDir=$PWD\dist" code/windows/installer/Eventail.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-ChildItem dist | Select-Object Name, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Eventail-Windows-${{ github.run_number }}
+          path: dist/Eventail-Setup.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-snapshots
+          path: snapshots/
+
+      - name: Publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ needs.prepare.outputs.ref }}
+        run: |
+          if ! gh release view windows-preview --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release create windows-preview --repo "$GITHUB_REPOSITORY" --prerelease --latest=false \
+              --title "Eventail pour Windows (aperçu)" \
+              --notes "Version de test d’Eventail pour Windows. Téléchargez Eventail-Setup.exe et double-cliquez dessus."
+          fi
+          gh release upload windows-preview dist/Eventail-Setup.exe --clobber --repo "$GITHUB_REPOSITORY"
+          gh release edit windows-preview --repo "$GITHUB_REPOSITORY" \
+            --notes "Version de test d’Eventail pour Windows (build $BUILD_NUMBER, branche $REF). Téléchargez Eventail-Setup.exe et double-cliquez dessus."
+          if ! gh release view ui-snapshots --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release create ui-snapshots --repo "$GITHUB_REPOSITORY" --prerelease --latest=false \
+              --title "UI snapshots" --notes "Pictures of the screens, made by CI."
+          fi
+          gh release upload ui-snapshots snapshots/*.png --clobber --repo "$GITHUB_REPOSITORY"
+
+  report:
+    name: Report
+    needs: [prepare, build]
+    if: always() && needs.prepare.outputs.sha != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set the commit status
+        env:
+          GH_TOKEN: ${{ secrets.CODE_TOKEN }}
+          RESULT: ${{ needs.build.result }}
+          SHA: ${{ needs.prepare.outputs.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          state=failure
+          description="Windows build failed"
+          if [ "$RESULT" = "success" ]; then
+            state=success
+            description="Windows installer ready"
+          fi
+          gh api "repos/$CODE_REPO/statuses/$SHA" -f state="$state" \
+            -f context="$STATUS_CONTEXT" -f description="$description" -f target_url="$RUN_URL" > /dev/null
