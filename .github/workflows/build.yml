@@ -491,7 +491,7 @@ jobs:
           git clone --depth 1 "https://x-access-token:${PUSH_TOKEN}@github.com/${RELEASES_REPO}.git" "$WORK"
           mkdir -p "$WORK/assets"
           cp release-repo/README.md LICENSE "$WORK/"
-          cp assets/logo.svg assets/download-button.svg "$WORK/assets/"
+          cp assets/logo.svg assets/download-button.svg assets/download-windows.svg "$WORK/assets/"
           git -C "$WORK" add -A
           if git -C "$WORK" diff --cached --quiet; then
             echo "The public page is already up to date."
