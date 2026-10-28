@@ -79,13 +79,13 @@ Les touches se changent dans **Réglages → Eventail** (cliquez sur l’éventa
 
 ## Installer sur Windows
 
-Eventail existe aussi pour **Windows 10 et 11** (première version), avec le même éventail. Dans l’Explorateur, commencez à faire glisser un fichier, puis **pendant le glisser** appuyez sur **Ctrl** (Convertir), **Alt** (Outils) ou **Maj** (Actions fichier).
+Eventail existe aussi pour **Windows 10 et 11**, avec le même éventail. Dans l’Explorateur, commencez à faire glisser un fichier, puis **pendant le glisser** appuyez sur **Ctrl** (Convertir), **Alt** (Outils), **Maj** (Actions fichier) ou **Ctrl + Maj** (Favoris). Les touches se changent dans les Réglages.
 
 1. Téléchargez **[Eventail-Setup.exe](https://github.com/kevinblanchardesign-hub/eventail-releases/releases/download/windows-preview/Eventail-Setup.exe)** et double-cliquez dessus.
 2. Si Windows affiche « Windows a protégé votre ordinateur » : cliquez sur **Informations complémentaires**, puis **Exécuter quand même** (l’app n’a pas encore de certificat Microsoft).
-3. Cliquez sur **Suivant** jusqu’au bout (pas besoin de mot de passe administrateur). Eventail attend ensuite dans la zone de notification, en bas à droite près de l’horloge.
+3. Cliquez sur **Suivant** jusqu’au bout (pas besoin de mot de passe administrateur). Eventail attend ensuite dans la zone de notification, en bas à droite près de l’horloge : un clic sur son icône ouvre les **Réglages**.
 
-Pour l’instant : conversions d’images (JPG, PNG, PDF, GIF, TIFF, BMP, ICO), compresser, pivoter, créer un ZIP, copier, déplacer, copier le chemin. Le reste arrive par étapes.
+Sur Windows : images (JPG, PNG, PDF, GIF, TIFF, BMP, ICO), PDF (en images, compresser, découper, fusionner, modifier les pages), vidéo et son (MP4, WMV, MP3, M4A, WAV, FLAC, WMA, sans son, mono, capture d’image), archives (ZIP, TAR, TAR.GZ, extraire), sous-titres (SRT ↔ VTT), compresser avec choix et taille cible, pivoter avec aperçu, lire les QR codes, effacer les métadonnées, partager, créer un PDF, copier, déplacer, copier le chemin. **Premium** (même achat que sur Mac) : éventail Favoris, Copier le texte, outils PDF. Les mises à jour arrivent toutes seules.
 
 ## Mises à jour
 
