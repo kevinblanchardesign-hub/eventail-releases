@@ -5,8 +5,12 @@
 # Started by a push that changes site-request.txt (first line "ref=<branch>")
 # or by "Run workflow".
 #
+# It also serves the page shown after a Premium purchase (/merci, from
+# site/functions/), with its secrets STRIPE_SECRET_KEY and a license signing
+# key derived from SPARKLE_PRIVATE_KEY (checked against the app's public key).
+#
 # Secrets: CODE_TOKEN (read the code), CLOUDFLARE_API_TOKEN (Cloudflare
-# Pages: Edit) and CLOUDFLARE_ACCOUNT_ID.
+# Pages: Edit), CLOUDFLARE_ACCOUNT_ID, STRIPE_SECRET_KEY, SPARKLE_PRIVATE_KEY.
 
 name: Site
 
@@ -31,6 +35,8 @@ permissions:
 env:
   CODE_REPO: kevinblanchardesign-hub/eventail
   PROJECT: eventail
+  # Public key embedded in the app: the page's signing key must match it.
+  EXPECTED_LICENSE_PUBLIC_KEY: yMHy3gtd+SeG50iIrnIV7QX5iV50ikrM0M3VUcDnhmQ=
 
 jobs:
   deploy:
@@ -75,8 +81,11 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
           BRANCH: ${{ steps.ref.outputs.branch }}
         run: |
+          set -o pipefail
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
             echo "::error::Add the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets."
             exit 1
@@ -85,7 +94,13 @@ jobs:
           if ! npx --yes wrangler@4 pages project list 2>/dev/null | grep -q " $PROJECT "; then
             npx --yes wrangler@4 pages project create "$PROJECT" --production-branch main || true
           fi
-          npx --yes wrangler@4 pages deploy dist --project-name "$PROJECT" --branch "$BRANCH" \
-            --commit-dirty=true | tee deploy.log
+          # Secrets of the purchase page, before the deployment that uses them.
+          if [ -d code/site/functions ]; then
+            node code/scripts/cloudflare-license-secrets.mjs
+          fi
+          # From site/, so Cloudflare also builds site/functions (the /merci page).
+          DIST="$PWD/dist"
+          (cd code/site && npx --yes wrangler@4 pages deploy "$DIST" --project-name "$PROJECT" --branch "$BRANCH" \
+            --commit-dirty=true) | tee deploy.log
           URL=$(grep -oE 'https://[a-z0-9.-]+\.pages\.dev' deploy.log | tail -n 1)
           echo "### Site published: $URL" >> "$GITHUB_STEP_SUMMARY"
