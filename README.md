@@ -17,6 +17,7 @@
 </p>
 
 <p align="center">
+  <a href="https://eventail.pages.dev"><b>🌐 Site web / Website</b></a> ·
   <a href="https://github.com/kevinblanchardesign-hub/eventail-releases/releases/download/latest-build/Eventail.dmg"><b>Télécharger pour macOS</b></a> ·
   <a href="https://github.com/kevinblanchardesign-hub/eventail-releases/releases/download/windows-preview/Eventail-Setup.exe"><b>Télécharger pour Windows</b></a> ·
   <a href="#installer-sur-windows">Installer sur Windows</a> ·
