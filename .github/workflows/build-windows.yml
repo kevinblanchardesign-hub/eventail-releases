@@ -1,9 +1,14 @@
 # Builds Eventail for Windows for free (public repository: unlimited
 # minutes). The code is in the private repository, folder windows/; this
 # workflow checks it out with CODE_TOKEN, tests it, builds a self-contained
-# app and an installer (Inno Setup), and publishes Eventail-Setup.exe in the
-# "windows-preview" release here. Pictures of the screens go to
-# "ui-snapshots" (win-*.png).
+# app, runs its engines on a real Windows (self-test) and makes an installer
+# (Inno Setup).
+#   - main: Eventail-Setup.exe and the signed update feed windows-update.json
+#     go to the "windows-preview" release here (what everyone downloads).
+#   - other branches: Eventail-Setup.exe goes to the private "windows-test"
+#     release of the code repository (Kevin's test version).
+# Pictures of the screens go to "ui-snapshots" (win-*.png). The update feed is
+# signed with SPARKLE_PRIVATE_KEY, like the Mac updates.
 #
 # Started by a push that changes windows-build-request.txt (first line
 # "ref=<branch>", main by default) or by "Run workflow".
@@ -122,11 +127,29 @@ jobs:
 
       - name: Build the app
         shell: bash
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
+          # Public key of the updates (empty: the app is built without updates).
+          UPDATE_KEY=""
+          if [ -n "$SPARKLE_PRIVATE_KEY" ]; then
+            UPDATE_KEY=$(node code/scripts/windows-update.mjs public)
+          fi
           dotnet publish code/windows/Eventail/Eventail.csproj -c Release -r win-x64 --self-contained true \
             -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
             -p:EnableCompressionInSingleFile=true -p:DebugType=none \
-            -p:BuildNumber="$BUILD_NUMBER" -o code/windows/out/publish -nologo -v minimal
+            -p:BuildNumber="$BUILD_NUMBER" -p:UpdatePublicKey="$UPDATE_KEY" \
+            -o code/windows/out/publish -nologo -v minimal
+
+      - name: Self-test on Windows
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "code/windows/out/publish/Eventail.exe" `
+            -ArgumentList "--selftest", "$env:RUNNER_TEMP\selftest" -Wait -PassThru `
+            -RedirectStandardOutput "$env:RUNNER_TEMP\selftest.txt"
+          Get-Content "$env:RUNNER_TEMP\selftest.txt"
+          Get-Content "$env:RUNNER_TEMP\selftest.txt" | Out-File -Append $env:GITHUB_STEP_SUMMARY
+          if ($p.ExitCode -ne 0) { Write-Error "Self-test failed ($($p.ExitCode))"; exit 1 }
 
       - name: Draw the screens
         shell: pwsh
@@ -162,21 +185,51 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          CODE_TOKEN: ${{ secrets.CODE_TOKEN }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
           REF: ${{ needs.prepare.outputs.ref }}
         run: |
+          VERSION=$(sed -n 's:.*<EventailVersion>\(.*\)</EventailVersion>.*:\1:p' code/windows/Directory.Build.props)
+          upload_snapshots() {
+            if ! gh release view ui-snapshots --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+              gh release create ui-snapshots --repo "$GITHUB_REPOSITORY" --prerelease --latest=false \
+                --title "UI snapshots" --notes "Pictures of the screens, made by CI."
+            fi
+            for attempt in 1 2 3; do
+              gh release upload ui-snapshots snapshots/*.png --clobber --repo "$GITHUB_REPOSITORY" && return 0
+              sleep 10
+            done
+            echo "::warning::Snapshots not uploaded."
+          }
+          if [ "$REF" != "main" ]; then
+            # Test version of a work branch: private release of the code repository.
+            if ! GH_TOKEN="$CODE_TOKEN" gh release view windows-test --repo "$CODE_REPO" > /dev/null 2>&1; then
+              GH_TOKEN="$CODE_TOKEN" gh release create windows-test --repo "$CODE_REPO" --prerelease --latest=false \
+                --title "Eventail pour Windows (version de test)" --notes "Version de test, à ne pas partager."
+            fi
+            GH_TOKEN="$CODE_TOKEN" gh release upload windows-test dist/Eventail-Setup.exe --clobber --repo "$CODE_REPO"
+            GH_TOKEN="$CODE_TOKEN" gh release edit windows-test --repo "$CODE_REPO" \
+              --notes "Version de test d’Eventail pour Windows (build $BUILD_NUMBER, branche $REF). À ne pas partager."
+            upload_snapshots
+            exit 0
+          fi
           if ! gh release view windows-preview --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             gh release create windows-preview --repo "$GITHUB_REPOSITORY" --prerelease --latest=false \
               --title "Eventail pour Windows (aperçu)" \
               --notes "Version de test d’Eventail pour Windows. Téléchargez Eventail-Setup.exe et double-cliquez dessus."
           fi
           gh release upload windows-preview dist/Eventail-Setup.exe --clobber --repo "$GITHUB_REPOSITORY"
-          gh release edit windows-preview --repo "$GITHUB_REPOSITORY" \
-            --notes "Version de test d’Eventail pour Windows (build $BUILD_NUMBER, branche $REF). Téléchargez Eventail-Setup.exe et double-cliquez dessus."
-          if ! gh release view ui-snapshots --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            gh release create ui-snapshots --repo "$GITHUB_REPOSITORY" --prerelease --latest=false \
-              --title "UI snapshots" --notes "Pictures of the screens, made by CI."
+          # The signed update feed, after the installer it points to.
+          if [ -n "$SPARKLE_PRIVATE_KEY" ]; then
+            node code/scripts/windows-update.mjs manifest dist/Eventail-Setup.exe "$BUILD_NUMBER" "$VERSION" \
+              code/windows/RELEASE_NOTES.md \
+              "https://github.com/$GITHUB_REPOSITORY/releases/download/windows-preview/Eventail-Setup.exe" \
+              dist/windows-update.json
+            gh release upload windows-preview dist/windows-update.json --clobber --repo "$GITHUB_REPOSITORY"
           fi
-          gh release upload ui-snapshots snapshots/*.png --clobber --repo "$GITHUB_REPOSITORY"
+          gh release edit windows-preview --repo "$GITHUB_REPOSITORY" --title "Eventail pour Windows" \
+            --notes "Eventail $VERSION pour Windows 10 et 11 (build $BUILD_NUMBER). Téléchargez Eventail-Setup.exe et double-cliquez dessus."
+          upload_snapshots
 
   report:
     name: Report
