@@ -144,6 +144,14 @@ jobs:
       - name: Self-test on Windows
         shell: pwsh
         run: |
+          # A short video with sound for the video checks (made with FFmpeg, test only).
+          $clip = "$env:RUNNER_TEMP\sample.mp4"
+          try {
+            if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) { choco install ffmpeg -y --no-progress | Out-Null; refreshenv | Out-Null }
+            ffmpeg -hide_banner -loglevel error -f lavfi -i "testsrc=duration=4:size=1280x720:rate=30" `
+              -f lavfi -i "sine=frequency=440:duration=4" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest -y $clip
+          } catch { Write-Host "No sample video: $($_.Exception.Message)" }
+          if (Test-Path $clip) { $env:EVENTAIL_SAMPLE_VIDEO = $clip }
           $p = Start-Process -FilePath "code/windows/out/publish/Eventail.exe" `
             -ArgumentList "--selftest", "$env:RUNNER_TEMP\selftest" -Wait -PassThru `
             -RedirectStandardOutput "$env:RUNNER_TEMP\selftest.txt"
